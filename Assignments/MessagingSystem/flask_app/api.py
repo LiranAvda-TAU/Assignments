@@ -1,7 +1,5 @@
-from flask import Flask, request, session, g, abort, jsonify
-
-from MessagingSystem.Backend.Message import Message
-from MessagingSystem.flask_app import db
+from flask import Flask, request, session, abort
+from MessagingSystem.flask_app.db import get_db, init_app
 import os
 from marshmallow import Schema, fields
 
@@ -36,7 +34,7 @@ user_schema = UserQuerySchema()
 message_schema = MessageQuerySchema()
 message_id_schema = MessageIdQuerySchema()
 
-db.init_app(app)
+init_app(app)
 
 
 @app.route("/")
@@ -53,19 +51,19 @@ def register():
         if not error:
             username = request.args['username']
             password = request.args['password']
-            app_db = db.get_db()
+            db = get_db()
 
-            if app_db.execute(
+            if db.execute(
                 'SELECT id FROM user WHERE username = ?', (username,)
             ).fetchone() is not None:
-                error = 'User {} is already registered.'.format(username)
+                error = 'User name {} is already taken.'.format(username)
 
             if not error:
-                app_db.execute(
+                db.execute(
                     'INSERT INTO user (username, password) VALUES (?, ?)',
                     (username, password)
                 )
-                app_db.commit()
+                db.commit()
                 return "OK"
 
     abort(400, str(error))
@@ -80,8 +78,9 @@ def login():
         if not error:
             username = request.args['username']
             password = request.args['password']
-            app_db = db.get_db()
-            user = app_db.execute(
+            db = get_db()
+
+            user = db.execute(
                 'SELECT * FROM user WHERE username = ?', (username,)
             ).fetchone()
 
@@ -93,7 +92,6 @@ def login():
             if not error:
                 session.clear()
                 session['user_id'] = user['id']
-                print(session['user_id'])
                 return "OK"
 
     abort(400, str(error))
@@ -112,6 +110,8 @@ def logout():
 def send_message():
     if request.method != 'POST':
         error = 'Request method should be POST.'
+    elif 'user_id' not in session:  # not logged in
+        error = 'You need to login before performing this request.'
     else:
         error = message_schema.validate(request.args)
         if not error:
@@ -119,50 +119,58 @@ def send_message():
             subject = request.args['subject']
             body = request.args['body']
 
-            if 'user_id' not in session:  # not logged in
-                error = 'You need to login before performing this request.'
+            db = get_db()
+            receiver = db.execute(
+                'SELECT * FROM user WHERE username = ?', (receiver_name,)
+            ).fetchone()
+
+            if receiver is None:
+                error = 'Incorrect username for receiver.'
 
             if not error:
-                app_db = db.get_db()
-                receiver = app_db.execute(
-                    'SELECT * FROM user WHERE username = ?', (receiver_name,)
-                ).fetchone()
-
-                if receiver is None:
-                    error = 'Incorrect username for receiver.'
-
-                if not error:
-                    app_db.execute(
-                        'INSERT INTO message (sender_id, receiver_id, subject, body, new)'
-                        ' VALUES (?, ?, ?, ?, ?)',
-                        (session['user_id'], receiver['id'], subject, body, True,)
-                    )
-                    app_db.commit()
-                    return "OK"
+                db.execute(
+                    'INSERT INTO message (sender_id, receiver_id, subject, body, new)'
+                    ' VALUES (?, ?, ?, ?, ?)',
+                    (session['user_id'], receiver['id'], subject, body, True,)
+                )
+                db.commit()
+                return "OK"
     abort(400, str(error))
 
 
 @app.route('/get_all')
 def get_messages():
-    if not session.get('logged_in'):  # not logged in
-        return 'You need to login before performing this request.'
-    messages = db.get_db().execute(
-        'SELECT m.id, m.sender_id, m.subject, m.body, m.created'
-        'FROM message m'
-        'WHERE m.sender_id = ?',
-        (session['user_id'],))
-    return messages
+    if 'user_id' not in session:
+        abort(400, 'You need to login before performing this request.')
+    db = get_db()
+    db_rows = db.execute(
+        'SELECT *'
+        ' FROM message'
+        ' WHERE receiver_id = ?',
+        (session['user_id'],)).fetchall()
+
+    messages_list = list()
+    for db_row in db_rows:
+        if db_row['new']:
+            update_to_old_message(db_row['id'])
+        messages_list.append(message_dict_from_row(db_row))
+    return str(messages_list)
 
 
+@app.route('/get_new')
 def get_new_messages():
-    if not session.get('logged_in'):  # not logged in
-        return 'You need to login before performing this request.'
-    messages = db.get_db().execute(
-        'SELECT m.id, m.sender_id, m.subject, m.body, m.created'
-        'FROM message m'
-        'WHERE m.sender_id = ? AND m.new IS TRUE',
-        (session['user_id'],))
-    return messages
+    if 'user_id' not in session:
+        abort(400, 'You need to login before performing this request.')
+    db_rows = get_db().execute(
+        'SELECT *'
+        ' FROM message'
+        ' WHERE receiver_id = ? AND new = ?',
+        (session['user_id'], True,)).fetchall()
+    messages_list = list()
+    for db_row in db_rows:
+        update_to_old_message(db_row['id'])
+        messages_list.append(message_dict_from_row(db_row))
+    return str(messages_list)
 
 
 @app.route('/read')
@@ -173,32 +181,70 @@ def read_message():
         error = message_id_schema.validate(request.args)
         if not error:
             message_id = request.args['message_id']
-            app_db = db.get_db()
-            message = app_db.execute('SELECT * FROM message WHERE id = ? AND receiver_id = ?',
-                                          (message_id, session['user_id'],)).fetchone()
-            if message is None:
+            db = get_db()
+            db_row = db.execute(
+                'SELECT *'
+                ' FROM message'
+                ' WHERE id = ? AND receiver_id = ?',
+                (message_id, session['user_id'],)).fetchone()
+            if db_row is None:
                 error = 'Message id {0} does not exist or was not sent to you.'.format(message_id)
-                abort(404, str(error))
             else:
-                app_db.execute(
-                    'UPDATE message SET new = ? WHERE id = ?', (message_id)
-                )
-                db.commit()
-                return str(Message.from_db_to_message(message))
+                update_to_old_message(message_id)
+                return message_dict_from_row(db_row)
     abort(400, str(error))
 
 
+@app.route('/delete', methods=('DELETE',))
 def delete_message():
-    error = None
-    if not session.get('logged_in'):
+    if request.method != 'DELETE':
+        error = 'Request method should be POST.'
+    elif 'user_id' not in session:
         error = 'You need to login before performing this request.'
-    message_id = request.form['message_id']
-    if not error:
-        app_db = db.get_db()
-        app_db.execute('DELETE FROM message WHERE id = ?', (message_id,))
-        app_db.commit()
-        return "OK"
-    return error
+    else:
+        error = message_id_schema.validate(request.args)
+        if not error:
+            message_id = request.args['message_id']
+
+            db = get_db()
+            ids_row = db.execute('SELECT sender_id, receiver_id'
+                                 ' FROM message'
+                                 ' WHERE id = ?',
+                                 (message_id,)).fetchone()
+            if not ids_row:
+                error = 'Message does not exist.'
+            elif ids_row['sender_id'] != session['user_id'] and ids_row['receiver_id'] != session['user_id']:
+                error = 'Message can only be deleted by sender or receiver of the message.'
+            else:
+                db.execute('DELETE FROM message WHERE id = ?', (message_id,))
+                db.commit()
+                return "OK"
+    abort(400, str(error))
+
+
+def update_to_old_message(message_id):
+    db = get_db()
+    db.execute('UPDATE message SET new = ? WHERE id = ?', (False, message_id,))
+    db.commit()
+
+
+def message_dict_from_row(row):
+    d = dict(zip(row.keys(), row))
+    if 'sender_id' in d:
+        d['sender name'] = get_user_name_by_id(d.pop('sender_id'))
+    if 'receiver_id' in d:
+        d['receiver name'] = get_user_name_by_id(d.pop('receiver_id'))
+    return d
+
+
+def get_user_name_by_id(user_id):
+    user_name = get_db().execute(
+        'SELECT username'
+        ' FROM user'
+        ' WHERE id = ?',
+        (user_id,)).fetchone()[0]
+    print(user_name)
+    return user_name
 
 
 if __name__ == "__main__":
