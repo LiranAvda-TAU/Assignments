@@ -1,0 +1,7 @@
+fname,birth,e_id,lname
+   bar,20090101,12331,cohen
+   liran,20090102,547,avda
+   benny,20090103,43234,zack
+   zizek,20090101,93674,fat
+   leo,20090102,2352,cute
+   nala,20090103,43642,sweet
