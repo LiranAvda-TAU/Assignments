@@ -15,6 +15,8 @@ class ClientHandler:
                                 first_name=first_name_field,
                                 last_name=last_name_field,
                                 date_of_birth=date_of_birth_field)
+        if not client_name:
+            return Result(False, "Client name must be filled.")
         if None in field_names:
             return Result(False,
                           "File should contain 4 explicit columns: first name, last name, date of birth, employee id "
@@ -26,16 +28,17 @@ class ClientHandler:
         return self.db_handler.insert_employees(employees_df, client_name)
 
     def check_employee_eligible(self, employee_data):
-        if self.is_data_valid(employee_data):
+        if self.__is_data_valid(employee_data):
             return self.db_handler.check_employee_eligible(employee_data)
-        error = "Employee data should contain these four fields: first_name, last_name, date_of_birth, " \
-                "employee_id."
+        error = "Employee data should contain these five fields: first_name, last_name, date_of_birth, " \
+                "employee_id and client."
         return Result(False, error)
 
     @staticmethod
-    def is_data_valid(employee_data):
+    def __is_data_valid(employee_data):
         return all(field in employee_data for field in (FileHandler.FIRST_NAME,
                                                         FileHandler.LAST_NAME,
                                                         FileHandler.DATE_OF_BIRTH,
-                                                        FileHandler.EMPLOYEE_ID))
+                                                        FileHandler.EMPLOYEE_ID,
+                                                        FileHandler.CLIENT))
 

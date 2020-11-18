@@ -1,16 +1,16 @@
 ##EmployeesSystem
 
 ## Table of contents
-* [General info](#general-info)
-* [Technologies](#technologies)
-* [Setup](#setup)
-* [Structure](#structure)
-* [Logic](#logic)
-* [File Handler](#file-handler)
-* [Database Handler](#database-handler)
-* [HTTP API](#http-api)
-* [Server](#server)
-* [Contact](#contact)
+1. General info
+2. Technologies
+3. Setup
+4. Structure
+5. Logic
+6. File Handler
+7. Database Handler
+8. HTTP API
+9. Server
+10. Contact
 
 
 ## General info
@@ -23,7 +23,13 @@ EmployeesSystem is created with:
 * sqlite3 version: 3.31.1
 
 ## Setup
-To run this project, install it locally
+Before running the system, please make sure you have pandas package and sqlite3 package installed.
+The class the user may interact with will be the 'ClientHandler' class, under 'logic' folder.
+The two methods the user can use under that class are: insert_employees and check_employee_eligible.
+insert_employees method will be used to insert employees data for new\existing clients into the DB.
+check_employee_eligible method will check if an employee is eligible and registered in the data. This method can also
+be accessed through the API.
+Examples of both functions are can be seen under logic\tests\ClientHandlerTest.py
 
 ## Structure
 EmployeesSystem is composed of 4 components: the Logic, the File Handler, the Database Handler and the HTTP API.
@@ -42,7 +48,7 @@ The database component consists of the DB itself, and the Database Handler class
 
 ## HTTP API
 The HTTP API offers a single method to check whether an employee is eligible. To use the method, a POST request should be sent to the path "/check".
-The request body should contain 4 fields: first_name, last_name, date_of_birth, employee_id. 
+The request body should contain 5 fields: first_name, last_name, date_of_birth, employee_id, client. 
 
 ## Server
 The service runs locally on port 8080. It was build using python's BaseHttpRequestHandler package.

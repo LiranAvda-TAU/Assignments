@@ -8,6 +8,7 @@ class FileHandler:
     LAST_NAME = "last_name"
     DATE_OF_BIRTH = "date_of_birth"
     EMPLOYEE_ID = "employee_id"
+    CLIENT = "client"
 
     def __init__(self, file_path, client_name):
         self.file_path = file_path

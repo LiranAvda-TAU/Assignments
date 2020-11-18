@@ -11,6 +11,7 @@ class ClientHandlerTester:
     def get_exist_employee_data():
         return {'first_name': 'liran',
                 'last_name': 'avda',
+                'client': 'foo',
                 'employee_id': 547,
                 'date_of_birth': '20090102'}
 
@@ -18,6 +19,7 @@ class ClientHandlerTester:
     def get_new_exist_employee_data():
         return {'first_name': 'simba',
                 'last_name': 'lion',
+                'client': 'foo',
                 'employee_id': 19331,
                 'date_of_birth': '20090601'}
 
@@ -25,6 +27,7 @@ class ClientHandlerTester:
     def get_not_exist_employee_data():
         return {'first_name': 'bar',
                 'last_name': 'cohen',
+                'client': 'foo',
                 'employee_id': 12331,
                 'date_of_birth': '20090101'}
 
@@ -32,6 +35,7 @@ class ClientHandlerTester:
     def get_invalid_employee_data():
         return {'first_name': 'liran',
                 'last_name': 'avda',
+                'employee_id': 547,
                 'date_of_birth': '20090102'}
 
     def create_table(self):
@@ -48,6 +52,18 @@ class ClientHandlerTester:
             print("insert_valid_exist_employees_test: PASS")
         else:
             print("insert_valid_exist_employees_test: FAIL, error:", result.error)
+
+    def insert_employees_no_client_test(self):
+        result = self.client_handler.insert_employees(client_name=None,
+                                                      f_path=os.getcwd() + r"\test_files\foo.csv",
+                                                      first_name_field="fname",
+                                                      last_name_field="lname",
+                                                      employee_id_field="e_id",
+                                                      date_of_birth_field="birth")
+        if not result.success and result.error == "Client name must be filled.":
+            print("insert_employees_no_client_test: PASS")
+        else:
+            print("insert_employees_no_client_test: FAIL, error:", result.error)
 
     def insert_valid_non_exist_employees_test(self):
         result = self.client_handler.insert_employees(client_name="foo",
@@ -121,8 +137,8 @@ class ClientHandlerTester:
 
     def check_invalid_employee_eligible_test(self):
         result = self.client_handler.check_employee_eligible(employee_data=self.get_invalid_employee_data())
-        if not result.success and result.error == "Employee data should contain these four fields: first_name, " \
-                                                  "last_name, date_of_birth, employee_id.":
+        if not result.success and result.error == "Employee data should contain these five fields: first_name, " \
+                                                  "last_name, date_of_birth, employee_id and client.":
             print("check_invalid_employee_eligible_test: PASS")
         else:
             print("check_invalid_employee_eligible_test: FAIL, error:", result.error)
@@ -135,6 +151,7 @@ client_handler_tester.create_table()
 
 print("\n###INSERT TESTS###")
 client_handler_tester.insert_valid_exist_employees_test()
+client_handler_tester.insert_employees_no_client_test()
 client_handler_tester.insert_valid_non_exist_employees_test()
 client_handler_tester.insert_employees_test_no_header()
 client_handler_tester.insert_employees_test_invalid_file()

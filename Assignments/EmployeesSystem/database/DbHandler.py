@@ -107,8 +107,9 @@ class DbHandler:
         if conn:
             try:
                 c = conn.cursor()
-                c.execute('''SELECT * FROM employee WHERE employee_id=? AND first_name=? AND last_name=?''',
-                          (employee_data['employee_id'], employee_data['first_name'], employee_data['last_name'],))
+                c.execute('''SELECT * FROM employee WHERE employee_id=? AND client=? AND first_name=? AND last_name=?''',
+                          (employee_data['employee_id'], employee_data['client'], employee_data['first_name'],
+                           employee_data['last_name'],))
                 exists = c.fetchall()
                 print(exists)
                 if not exists:
@@ -119,11 +120,3 @@ class DbHandler:
                 return Result(False, str(e))
         return Result(False, "Connection Failed.")
 
-
-# db_handler = DbHandler("EmployeeDB.db")
-# # db_handler.create_table()
-# insert_sql = ''' INSERT INTO employee(employee_id,first_name,last_name,date_of_birth) VALUES(?,?,?,?) '''
-# conn = db_handler.create_connection()
-# c = conn.cursor()
-# c.execute(insert_sql, (5, 'liran', 'avda', '121092'))
-# conn.commit()
